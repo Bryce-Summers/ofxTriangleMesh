@@ -60,7 +60,7 @@ class ofxTriangleMesh {
         // for size, this depends on the size of your shape, 
         // 100 to 200 is a good first guess for screen resolution based points
     
-        void triangulate(ofPolyline contour, float angleConstraint = -1, float sizeConstraint = -1);
+        void triangulate(ofPolyline contour, ofPolyline hole, float angleConstraint = -1, float sizeConstraint = -1);
 
     
         

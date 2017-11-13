@@ -27,3 +27,5 @@ examples of size constraints:
 ![](http://i.imgur.com/QoBPb.png)
 ![](http://i.imgur.com/rP2ol.png)
 
+Bryce Edit 11.13.2017
+Holes can now be added by passing in an outer contour and a hole contour.

@@ -2,11 +2,6 @@
 #include "triangle.h"
 
 
-
-
-
-
-
 void triangulatePoints(char * flags, triangulateio * in, triangulateio * mid, 
                        triangulateio * out){
 
@@ -21,23 +16,63 @@ ofxTriangleMesh::ofxTriangleMesh(){
 
 
 // see note in the h file for how to use the parameters here....
-void ofxTriangleMesh::triangulate(ofPolyline contour, float angleConstraint, float sizeConstraint){
+void ofxTriangleMesh::triangulate(ofPolyline contour, ofPolyline hole, float angleConstraint, float sizeConstraint){
 
-    int bSize = contour.size();
+    int numContourPoints = contour.size();
+    int numHolePoints    = hole.size();
+    int numPoints = numContourPoints + numHolePoints;
+    int numHoles = 1; // Number of hole regions.
    
     struct triangulateio in, out;
-    in.numberofpoints = bSize;
+    in.numberofpoints = numPoints;
     in.numberofpointattributes = 0;
-    in.pointmarkerlist = NULL;
-    in.pointlist = (REAL *) malloc(bSize * 2 * sizeof(REAL));
+    in.pointlist = (REAL *)malloc(numPoints * 2 * sizeof(REAL));
+    in.pointmarkerlist = (int *)  malloc(numPoints * 1 * sizeof(int));
     in.numberofregions = 0;
     in.regionlist =  NULL;
     
-    for(int i = 0; i < bSize; i++) {
+    // Number of line segments.
+    in.numberofsegments = numPoints;
+    in.segmentlist       = (int *)malloc(in.numberofsegments * 2 * sizeof(int));
+    in.segmentmarkerlist = (int *)malloc(in.numberofsegments * 1 * sizeof(int));
+
+    in.numberofholes = 1;//hole.size();
+    in.holelist = (REAL *)malloc(in.numberofholes * 2 * sizeof(REAL));
+    
+
+    // Populate point list.   
+    for(int i = 0; i < numContourPoints; i++){
 		in.pointlist[i*2+0] = contour[i].x;
         in.pointlist[i*2+1] = contour[i].y;
+        in.pointmarkerlist[i] = 1;// 1 means contour number 1, in this case the outer one.
     }
-	
+    for(int i = 0; i < numHolePoints; i++)
+    {
+        int index = i + numContourPoints;
+        in.pointlist[index*2 + 0] = hole[i].x;
+        in.pointlist[index*2 + 1] = hole[i].y;
+        in.pointmarkerlist[index] = 2; // 2 means contour number 2, in this case the hole.
+    }
+
+    // Populate the segment list.
+    for (int i = 0; i < numContourPoints; i++) {
+        in.segmentlist[i*2 + 0] = i;
+        in.segmentlist[i*2 + 1] = (i + 1) % numContourPoints;
+        in.segmentmarkerlist[i] = 1;// 1 means contour number 1, in this case the outer one.
+    }
+    for (int i = 0; i < numHolePoints; i++)
+    {
+        int index = i + numContourPoints;
+        in.segmentlist[index * 2 + 0] = index;
+        in.segmentlist[index * 2 + 1] = ((i + 1) % numHolePoints) + numContourPoints;
+        in.segmentmarkerlist[index] = 2; // 2 means contour number 2, in this case the hole.
+    }
+
+    // Populate hole point list.
+    ofPoint center = hole.getCentroid2D();
+    in.holelist[0 + 0] = center.x;// x of infection.
+    in.holelist[0 + 1] = center.y;// y of infection.
+
     out.pointlist = (REAL *) NULL;            
     out.pointattributelist = (REAL *) NULL;
     out.pointmarkerlist = (int *) NULL; 
@@ -48,7 +83,8 @@ void ofxTriangleMesh::triangulate(ofPolyline contour, float angleConstraint, flo
     out.segmentmarkerlist = (int *) NULL;
     out.edgelist = (int *) NULL;
     out.edgemarkerlist = (int *) NULL; 
- 
+    out.holelist = (REAL *) NULL; 
+
     
     bool bConstrainAngle = false;
     bool bConstrainSize = false;
@@ -62,7 +98,7 @@ void ofxTriangleMesh::triangulate(ofPolyline contour, float angleConstraint, flo
     
     triangulateParams += "z";   // start from zero
     triangulateParams += "Y";   // Prohibits the insertion of Steiner points (extra points) on the mesh boundary.
-    triangulateParams += "Q";   // quiet!   change to V is you want alot of info
+    triangulateParams += "V";//"Q";   // quiet!   change to V is you want alot of info
     
     if (bConstrainAngle == true){
         triangulateParams += "q" + ofToString( angleConstraint );
@@ -71,11 +107,14 @@ void ofxTriangleMesh::triangulate(ofPolyline contour, float angleConstraint, flo
     if (bConstrainSize == true){
         triangulateParams += "a" + ofToString( (int)sizeConstraint );
     }
+
+    triangulateParams += "p"; // Assumes input is a .poly planar line graph file, so it will carve holes.
     
     
     triangulatePoints((char *) triangulateParams.c_str(), &in, &out, NULL);
 
-    
+
+
     /*
     printf("Initial triangulation:\n\n");
     //report(&mid, 1, 1, 1, 1, 1, 0);
